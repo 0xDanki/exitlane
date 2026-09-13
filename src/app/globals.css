@@ -1,26 +1,142 @@
 @import "tailwindcss";
 
+/* ── ExitLane Design System v1.5 — Semantic tokens ─────────────────────────── */
+/* Source of truth: docs/DESIGN_SYSTEM.md                                       */
+/* Components must consume these tokens. Never use raw hex or primitive names.  */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* ── Surfaces ──────────────────────────────────────────────────────────── */
+  --surface-canvas: #fdfffc; /* Paper — page background          */
+  --surface-panel: #fdfffc; /* Paper — panels use border         */
+  --surface-elevated: #ffffff; /* Cards, modals, popovers          */
+  --surface-inverse: #011627; /* Midnight — reversed sections     */
+
+  /* ── Text ──────────────────────────────────────────────────────────────── */
+  --text-primary: #011627; /* Midnight                          */
+  --text-secondary: #4b6275; /* Midnight ~60% on Paper           */
+  --text-muted: #8899a6; /* Midnight ~40% on Paper            */
+  --text-inverse: #fdfffc; /* Paper — on Midnight surfaces      */
+
+  /* ── Borders ───────────────────────────────────────────────────────────── */
+  --border-subtle: rgba(1, 22, 39, 0.1); /* ~10% Midnight              */
+  --border-strong: rgba(1, 22, 39, 0.28); /* ~28% Midnight              */
+
+  /* ── Actions ───────────────────────────────────────────────────────────── */
+  --action-primary: #41ead4; /* Aqua                             */
+  --action-primary-hover: #2bc4af; /* Aqua darkened ~10%          */
+
+  /* ── Status ────────────────────────────────────────────────────────────── */
+  --status-safe: #41ead4; /* Aqua — Verified, Monitoring      */
+  --status-armed: #b91372; /* Magenta — Armed, Triggered       */
+  --status-watch: #b91372; /* Magenta alias                    */
+  --status-danger: #ff0022; /* Red — Blocked, Critical          */
+  --status-info: #011627; /* Midnight — neutral informational  */
+
+  /* ── Focus ─────────────────────────────────────────────────────────────── */
+  --focus-ring: #41ead4;
+
+  /* ── Shadow ────────────────────────────────────────────────────────────── */
+  --shadow-panel: 0 1px 3px rgba(1, 22, 39, 0.08), 0 1px 2px rgba(1, 22, 39, 0.04);
+
+  /* ── Radius ────────────────────────────────────────────────────────────── */
+  --radius-control: 6px;
+  --radius-panel: 12px;
+
+  /* ── Motion ────────────────────────────────────────────────────────────── */
+  --duration-fast: 120ms;
+  --duration-normal: 220ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+
+  /* ── Typography ────────────────────────────────────────────────────────── */
+  /* Font variables populated by next/font/google in layout.tsx              */
+  --font-serif: var(--font-literata, Georgia, serif);
+  --font-sans: var(--font-hanken, system-ui, sans-serif);
+  --font-mono: var(--font-fragment, "Fira Code", monospace);
 }
 
+/* ── Tailwind v4 theme registration ───────────────────────────────────────── */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-hanken, system-ui, sans-serif);
+  --font-mono: var(--font-fragment, "Fira Code", monospace);
+  --font-serif: var(--font-literata, Georgia, serif);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* ── Base styles ──────────────────────────────────────────────────────────── */
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--surface-canvas);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  line-height: 1.5;
+}
+
+/* ── Focus-visible ring ───────────────────────────────────────────────────── */
+*:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* ── Reduced motion ───────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ── Screen-reader only ───────────────────────────────────────────────────── */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* ── Operator workspace: responsive 2-column grid ─────────────────────────── */
+/* Mobile-first: single column. Desktop (≥900px): Plan left, Proof right.     */
+.workspace-top {
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+}
+
+@media (min-width: 900px) {
+  .workspace-top {
+    display: grid;
+    grid-template-columns: 3fr 2fr;
+    gap: 48px;
+    align-items: start;
+  }
+}
+
+/* ── Principles row: responsive 3-column ─────────────────────────────────── */
+.principles-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+@media (min-width: 640px) {
+  .principles-row {
+    flex-direction: row;
+  }
+  .principles-row > * {
+    flex: 1;
+  }
+  .principles-row > * + * {
+    border-left: 1px solid rgba(253, 255, 252, 0.15);
+    border-top: none !important;
+  }
 }

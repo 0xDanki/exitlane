@@ -204,6 +204,85 @@ Runtime: Node.js. Caching: none (`force-dynamic`).
 
 ---
 
+## POST /api/draft
+
+Generates an untrusted AI mandate draft from an operator's plain-language plan text.
+Requires Privy authentication. Calls Anthropic exactly once per request.
+
+**AI output is an untrusted draft. It cannot authorize execution or select trusted fields.**
+
+Runtime: Node.js. Caching: none (`force-dynamic`).
+
+### Request
+
+```http
+POST /api/draft
+Authorization: Bearer <privy-access-token>
+Content-Type: application/json
+
+{ "operatorText": "<1–1000 character plain-language plan>" }
+```
+
+### Success response (HTTP 200)
+
+```ts
+{
+  ok: true;
+  draft: {
+    /** Each economic field is either { value, sourceSpan } or { value: null, sourceSpan: null }. */
+    inputAssetSymbol:         { value: string | null; sourceSpan: string | null };
+    outputAssetSymbol:        { value: string | null; sourceSpan: string | null };
+    maxInputAmount:           { value: string | null; sourceSpan: string | null }; // decimal string
+    triggerComparator:        { value: "lte" | null;  sourceSpan: string | null };
+    triggerThresholdUsd:      { value: string | null; sourceSpan: string | null }; // USD decimal string
+    maxSlippagePercent:       { value: string | null; sourceSpan: string | null }; // decimal string
+    validityDurationMinutes:  { value: string | null; sourceSpan: string | null }; // decimal string
+    /** Enum of field names that the model could not extract. */
+    missingFields: Array<
+      | "inputAssetSymbol" | "outputAssetSymbol" | "maxInputAmount"
+      | "triggerComparator" | "triggerThresholdUsd" | "maxSlippagePercent"
+      | "validityDurationMinutes"
+    >;
+    /** Concise operator-facing summary (≤ 300 chars). */
+    summary: string;
+  };
+}
+```
+
+**Schema invariants:**
+- A non-null `value` must have a non-null `sourceSpan` (the verbatim phrase from `operatorText`).
+- Every `sourceSpan` is deterministically verified to appear in the submitted `operatorText`.
+- The draft never contains: token addresses, chain IDs, router/target/recipient/wallet addresses,
+  timestamps, nonce, calldata, execution hash, policy outcome, or authorization status.
+- `triggerComparator.value` is either `"lte"` or `null` — no other comparator is accepted.
+
+### Error responses
+
+```ts
+{
+  ok: false;
+  error: {
+    code:
+      | "UNAUTHENTICATED"   // 401 — missing, malformed, expired, or invalid token
+      | "INVALID_INPUT"     // 400 — empty operatorText or > 1000 chars
+      | "AI_UNAVAILABLE"    // 503 — ANTHROPIC_API_KEY or ANTHROPIC_MODEL not configured; or provider failure
+      | "AI_SCHEMA_INVALID" // 422 — model output failed Zod validation or source-span verification
+      | "INTERNAL_ERROR";   // 500 — unexpected
+    message: string;
+  };
+}
+```
+
+**Guarantees:**
+- Returns `401` for missing, malformed, expired, or invalid Privy tokens.
+- The Anthropic API key and model are never included in any response.
+- Raw Anthropic errors are never surfaced — only stable public codes.
+- Exactly one Anthropic call per operator click; no automatic retries.
+- No fallback to another model or a fake draft.
+- The route never calls `evaluatePolicy()` — it produces only an untrusted draft.
+
+---
+
 ## GET /api/health
 
 Returns configuration booleans and service names only. It never performs a transaction or reveals values.

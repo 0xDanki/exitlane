@@ -53,6 +53,64 @@ External adapters
 12. Resolve the transaction outcome and consume the nonce safely.
 13. Produce an execution receipt.
 
+## Privy authentication flow (Phase 4)
+
+```
+Browser
+  │  1. PrivyProvider initialized with NEXT_PUBLIC_PRIVY_APP_ID
+  │  2. User logs in (email / external wallet)
+  │  3. Privy issues an access token (JWT) client-side
+  │  4. Client sends: Authorization: Bearer <access-token>
+  ↓
+src/app/api/draft/route.ts  (Next.js API route, Node runtime)
+  │  5. Extracts bearer token from Authorization header
+  ↓
+src/server/auth/privy.ts
+  │  6. verifyPrivyToken(token) via singleton PrivyClient (@privy-io/node)
+  │     - Client initialized with PRIVY_APP_ID + PRIVY_APP_SECRET (server-only)
+  │     - Calls client.utils().auth().verifyAccessToken(token)
+  │     - Returns { userId } on success
+  │     - Throws PrivyAuthError (sanitized) on any failure
+  │  7. Route returns 401 on PrivyAuthError — no raw error surfaced
+  ↓
+Request proceeds to input validation → Anthropic call
+```
+
+**Security properties:**
+- Access tokens are never logged or returned.
+- Raw Privy SDK errors are never surfaced; only `PrivyAuthError("Invalid or expired access token")`.
+- `PRIVY_APP_SECRET` is server-only; never in client bundle or API response.
+- Privy ownership check (mandate.owner == Privy wallet) is required before production (D-007).
+
+## AI mandate-draft flow (Phase 4)
+
+```
+src/app/api/draft/route.ts
+  │  1. Auth verified (see above)
+  │  2. operatorText validated: 1–1000 chars, non-empty
+  │  3. ANTHROPIC_API_KEY + ANTHROPIC_MODEL read from server env
+  ↓
+src/server/ai/mandate-draft.ts
+  │  4. System prompt establishes: output is untrusted draft; AI cannot authorize execution;
+  │     model cannot select trusted config (addresses, chain IDs, router, etc.)
+  │  5. Anthropic messages.create (claude-sonnet-5, max_tokens=600, effort="low")
+  │     with output_config.format = JSON schema derived from MandateDraftSchema via z.toJSONSchema()
+  │  6. Model output → JSON.parse → MandateDraftSchema.safeParse (strict, no extra props)
+  │  7. verifySourceSpans: every non-null sourceSpan must appear verbatim in operatorText
+  │  8. Throws AIDraftError on: JSON parse failure, Zod validation failure, span mismatch,
+  │     or Anthropic client error (all sanitized — raw provider errors never propagated)
+  ↓
+POST /api/draft  → { ok: true, draft: MandateDraft }
+```
+
+**AI trust boundary:**
+- AI output is an untrusted draft. It cannot authorize execution.
+- The schema rejects: token addresses, chain IDs, router/recipient/wallet addresses,
+  timestamps, nonce, calldata, execution hash, policy outcome, authorization status.
+- Source spans are deterministically verified against the original operator text.
+- One Anthropic call per click; no retries; no fallback models; no fake drafts.
+- `ANTHROPIC_API_KEY` and `ANTHROPIC_MODEL` are server-only and never appear in responses.
+
 ## The Graph trust boundary
 
 The Graph is an evidence source, not an authorization authority.

@@ -146,6 +146,35 @@ is rejected at schema validation time — it never reaches `hashMandate()`.
 | Base mainnet | 8453 | Evidence source (Decision D-002) |
 | Base Sepolia | 84532 | Execution MVP target |
 
+## Privy authentication controls (Phase 4)
+
+- Server-side verification uses `@privy-io/node` `PrivyClient.utils().auth().verifyAccessToken()`.
+- `PRIVY_APP_SECRET` is read only in `src/server/env.ts` (enforced by `server-only`).
+- A missing, malformed, expired, or otherwise invalid token returns `401 UNAUTHENTICATED`.
+- Raw Privy SDK errors are caught and replaced with a stable `PrivyAuthError` before the route handler sees them — no raw error text, user identifiers, or token fragments appear in responses.
+- Access tokens are never logged or echoed back.
+- The Privy `PrivyClient` is a lazy singleton (initialized on first use per worker process); no credentials are held in module scope before the first authenticated request.
+- **Not yet enforced (required before production):** API-layer wallet ownership check — verify that `mandate.owner` equals the Privy wallet address for the authenticated user (Decision D-007).
+
+## AI mandate-draft safety controls (Phase 4)
+
+The AI draft subsystem follows AI_USE.md. Key controls:
+
+| Control | Implementation |
+|---------|---------------|
+| Untrusted output | `MandateDraftSchema` is strict (`z.object({...}).strict()`); additional properties rejected |
+| No sensitive fields | Schema rejects: addresses, chain IDs, router, calldata, nonce, policy outcome, auth status |
+| Source-span verification | `verifySourceSpans()` checks every non-null `sourceSpan` appears verbatim in `operatorText` |
+| Input length limit | `operatorText` capped at 1,000 characters; empty input rejected with 400 |
+| Prompt-injection safety | Operator text treated as plain user data; system prompt is not modifiable by request body |
+| Single provider call | Exactly one Anthropic call per `/api/draft` request; no automatic retries |
+| No fallback | No fake draft; no alternative model; 503 on provider or config failure |
+| Sanitized errors | Raw Anthropic errors caught in `AIDraftError`; only stable codes returned to browser |
+| Server-only secrets | `ANTHROPIC_API_KEY` / `ANTHROPIC_MODEL` never in response body, logs, or client bundle |
+| Model selection | Fixed by `ANTHROPIC_MODEL` env var (server-only); never accepted from request body |
+
+The AI subsystem **cannot** authorize execution, override policy, select trusted transaction fields, create or approve calldata, consume nonces, or access credentials.
+
 ## Known POC limitations
 
 - In-memory nonce storage is not production-safe.

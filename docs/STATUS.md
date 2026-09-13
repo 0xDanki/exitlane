@@ -7,7 +7,7 @@ Use exact labels: implemented, tested, deployed, simulated, planned, blocked.
 
 ## Current phase
 
-**Phase 3 — Trusted live WETH/USDC market evidence from The Graph** (complete)
+**Phase 4 — Operator interface, Privy authentication, live evidence display, AI mandate drafting** (complete)
 
 ---
 
@@ -50,7 +50,7 @@ Use exact labels: implemented, tested, deployed, simulated, planned, blocked.
 
 ---
 
-## Test results (Phase 3 — after Graph evidence pipeline)
+## Test results (Phase 4 — after operator interface and AI drafting)
 
 | File | Tests |
 |------|-------|
@@ -58,10 +58,25 @@ Use exact labels: implemented, tested, deployed, simulated, planned, blocked.
 | `execution.test.ts` | 16 pass |
 | `mandate.test.ts` | 30 pass |
 | `policy.test.ts` | 29 pass |
-| `server/graph/evidence.test.ts` | 37 pass (new: priceStringToScaled ×9, fetchWethUsdcEvidence ×28) |
-| **Total** | **162 pass, 0 fail** (2026-09-13, 803ms) |
+| `server/graph/evidence.test.ts` | 37 pass |
+| `server/ai/mandate-draft.test.ts` | 33 pass (new: MandateDraftSchema ×11, verifySourceSpans ×4, fetchMandateDraft ×7, POST /api/draft ×11) |
+| **Total** | **196 pass, 0 fail** (2026-09-13, ~987ms) |
 
 ---
+
+### Phase 4 (operator interface, Privy auth, AI drafting — complete)
+
+- `src/app/globals.css` — ExitLane Design System v1.5 semantic CSS tokens (colors, spacing, typography, motion, focus states, reduced-motion support).
+- `src/app/layout.tsx` — Literata / Hanken Grotesk / Fragment Mono fonts; `Providers` wrapper.
+- `src/app/providers.tsx` — `QueryClientProvider` + `PrivyProvider` client wrapper; guards against empty `NEXT_PUBLIC_PRIVY_APP_ID` at build time.
+- `src/server/env.ts` — added `getPrivyAppId()`, `getPrivyAppSecret()`, `getAnthropicApiKey()`, `getAnthropicModel()`.
+- `src/server/auth/privy.ts` — `verifyPrivyToken()` via `@privy-io/node` singleton; sanitized `PrivyAuthError`.
+- `src/server/ai/mandate-draft.ts` — strict `MandateDraftSchema` (Zod, no addresses/chain IDs/calldata); `verifySourceSpans()` deterministic check; `fetchMandateDraft()` one Anthropic call with structured output.
+- `src/app/api/draft/route.ts` — `POST /api/draft` (Node, force-dynamic): auth → input validation → Anthropic → stable error codes.
+- `src/app/page.tsx` — full operator screen: ExitLane brand, Privy login/logout, Plan textarea + example, `Generate mandate draft` button, AI-generated draft display with nullable-field labels, live WETH/USDC evidence polling (15 s, paused when hidden), disabled sign control with explanation.
+- `src/server/ai/mandate-draft.test.ts` — 33 focused tests: schema invariants, prompt injection, auth failures (401), missing config (503), valid/malformed/invalid model output, provider failure sanitization, no secret leakage.
+- `.env.example` — `NEXT_PUBLIC_PRIVY_APP_ID`, `PRIVY_APP_SECRET`, `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL` documented.
+- `docs/DECISIONS.md` — D-013 (Privy singleton), D-014 (structured output via z.toJSONSchema), D-015 (source-span verification), D-016 (server-only model selection).
 
 ### Phase 3 (Graph evidence pipeline — complete)
 
@@ -79,7 +94,7 @@ Use exact labels: implemented, tested, deployed, simulated, planned, blocked.
 
 ## In progress
 
-- Phase 4 planning (UI, Privy auth, quote/execute flow).
+- Phase 5: EIP-712 signing flow (operator signs mandate in browser via Privy embedded wallet).
 
 ---
 
@@ -103,27 +118,29 @@ Use exact labels: implemented, tested, deployed, simulated, planned, blocked.
 | Integration | Configured | Live verified | Evidence |
 |-------------|:----------:|:-------------:|---------|
 | The Graph   | ✓ Yes | ✓ Yes | `GET /api/evidence` → $2475, block 51257280, age 6 s (2026-09-13) |
-| Privy       | No | No | — |
+| Privy       | ✓ Yes (env) | Pending manual UI test | `NEXT_PUBLIC_PRIVY_APP_ID` + `PRIVY_APP_SECRET` present; server-side token verification implemented |
 | Uniswap     | No | No | — |
-| Anthropic   | No | No | — |
+| Anthropic   | ✓ Yes (env) | Pending manual UI test | `ANTHROPIC_API_KEY` + `ANTHROPIC_MODEL` present; `POST /api/draft` implemented |
 
 ---
 
-## Latest verification (Phase 3 — Graph evidence pipeline)
+## Latest verification (Phase 4 — operator interface and AI drafting)
 
 | Check | Result | Date / evidence |
 |-------|--------|----------------|
 | `pnpm lint` | ✓ passed | 2026-09-13, `eslint .` — 0 errors, 0 warnings |
-| `pnpm test` | ✓ passed | 2026-09-13, 162/162 tests pass in 803ms |
+| `pnpm test` | ✓ passed | 2026-09-13, 196/196 tests pass in ~987ms |
 | `pnpm typecheck` | ✓ passed | 2026-09-13, `tsc --noEmit` — 0 errors |
-| `pnpm build` | ✓ passed | 2026-09-13, Next.js 16.3.5 Turbopack, `/api/evidence` (Dynamic) |
+| `pnpm build` | ✓ passed | 2026-09-13, Next.js 16.3.5 Turbopack; `/` (Static), `/api/draft` (Dynamic), `/api/evidence` (Dynamic) |
 | `git diff --check` | ✓ clean | 2026-09-13 |
 | `/api/evidence` live | ✓ $2475.33 | 2026-09-13, block 51257280, age 6 s, key not printed |
+| Manual UI — Privy login | Pending | Requires `localhost:3000` with valid `NEXT_PUBLIC_PRIVY_APP_ID` |
+| Manual UI — AI draft | Pending | Requires `localhost:3000` with valid `ANTHROPIC_API_KEY` |
 
 ---
 
 ## Next three actions
 
-1. Implement `/api/health` route with configuration booleans (no secrets revealed).
-2. Implement Privy authentication and wallet ownership verification.
-3. Implement `/api/risk` route calling evidence + policy engine (no execution).
+1. Manual UI verification at `localhost:3000`: Privy login, live evidence, AI draft generation, missing-field labels, disabled sign control.
+2. Implement EIP-712 signing flow: operator signs mandate in browser via Privy embedded wallet.
+3. Implement Privy wallet ownership check in API layer (`mandate.owner` == Privy wallet address).
