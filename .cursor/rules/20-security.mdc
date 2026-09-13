@@ -1,0 +1,25 @@
+---
+description: Security rules for wallet, API, mandate, and agent code
+globs: "src/**/*.ts, src/**/*.tsx"
+alwaysApply: false
+---
+
+# Security model
+
+Treat browser input, Graph data, AI output, Uniswap responses, RPC responses, webhooks, and persisted state as untrusted.
+
+- Never expose secrets through `NEXT_PUBLIC_*`, client bundles, logs, stack traces, health endpoints, screenshots, or test fixtures.
+- Never create an endpoint that signs caller-provided arbitrary calldata or arbitrary destinations.
+- Verify authentication before associating a mandate with a treasury wallet.
+- Verify the EIP-712 signature and every signed field server-side.
+- Recheck live evidence, expiry, nonce, amount, token, router, recipient, slippage, and chain immediately before execution.
+- Use a restrictive, non-empty Privy signer policy. No allow-all fallback.
+- Enforce a global testnet amount cap independently of the user's mandate.
+- Require idempotency. Never retry an uncertain broadcast automatically.
+- Fail closed on stale evidence, schema drift, timeouts, malformed values, AI disagreement, or unknown routing types.
+- Escape untrusted text. Do not use `dangerouslySetInnerHTML`.
+- Use fixed allowlisted external origins; do not build user-controlled fetch URLs.
+- Do not log full signatures, authorization material, request headers, or sensitive provider responses.
+- Add a negative test with every new authorization rule.
+- Document remaining trust assumptions in `docs/SECURITY_MODEL.md` and `LIMITATIONS.md`.
+

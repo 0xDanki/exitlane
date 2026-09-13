@@ -1,0 +1,18 @@
+---
+description: Documentation truthfulness and project-state maintenance
+globs: "docs/**/*.md, README.md, SECURITY.md, LIMITATIONS.md, FEEDBACK.md"
+alwaysApply: false
+---
+
+# Documentation
+
+- Describe only behavior verified in the current repository or deployment.
+- Use exact labels: implemented, tested, deployed, simulated, planned, or blocked.
+- Link sponsor integrations to exact source files and public evidence.
+- Never publish secrets, complete authorization material, or unredacted sensitive provider responses.
+- Keep setup commands reproducible from a clean checkout.
+- Record architectural decisions and their tradeoffs in `docs/DECISIONS.md`.
+- Update `docs/STATUS.md` after each phase; do not use README as a scratchpad.
+- Keep `docs/ARCHITECTURE.md`, `docs/API_CONTRACTS.md`, and implementation types consistent.
+- Add a dated note when an external SDK or API assumption is verified.
+

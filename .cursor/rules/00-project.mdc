@@ -1,0 +1,20 @@
+---
+description: ExitLane product invariants and repository workflow
+alwaysApply: true
+---
+
+# Product invariant
+
+ExitLane allows an agent to invoke an owner's signed exit plan but never to rewrite it.
+
+# Non-negotiable rules
+
+- The owner controls the mandate. The agent cannot change token, amount, recipient, router, slippage, trigger, validity, or nonce.
+- AI is advisory. Deterministic code authorizes or blocks execution.
+- Live integrations must fail closed. Never replace a failure with mocked success.
+- Clearly label mainnet evidence, testnet execution, fixtures, and incomplete functionality.
+- Keep the MVP to one monitored market, one trigger, one execution chain, and one exit asset until the end-to-end flow is verified.
+- Read `CLAUDE.md` and `docs/STATUS.md` before multi-file changes.
+- Run `pnpm check` before calling a phase complete.
+- Update `docs/STATUS.md` with evidence, blockers, and next action.
+

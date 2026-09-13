@@ -1,0 +1,22 @@
+---
+description: ExitLane design-system, accessibility, and UX constraints
+globs: "src/**/*.tsx, src/**/*.css"
+alwaysApply: false
+---
+
+# Frontend system
+
+- `docs/DESIGN_SYSTEM.md` and semantic CSS variables are the visual source of truth.
+- Do not hardcode hex colors, shadows, radii, spacing systems, or typography in components.
+- Do not use arbitrary Tailwind values when a semantic token exists.
+- Reuse shared primitives before creating a one-off component.
+- New components must define default, hover, focus, disabled, loading, error, and success states where applicable.
+- Preserve the visual hierarchy: current safety state first, evidence second, action third, technical detail on demand.
+- One screen should have one obvious primary action.
+- Never hide why an action is unavailable; show the unmet condition.
+- Never show an optimistic success state for signing, policy enrollment, transaction submission, or confirmation.
+- Always distinguish LIVE, TESTNET, SIMULATED, and FIXTURE states visually and textually.
+- Meet WCAG 2.2 AA contrast, keyboard navigation, visible focus, semantic landmarks, accessible names, and reduced-motion preferences.
+- Use plain language before protocol terminology. Put hashes, addresses, raw values, and provider details in expandable technical sections.
+- Keep copy calm and precise. Avoid hype, fear language, and unexplained abbreviations.
+

@@ -1,0 +1,20 @@
+---
+description: Testing and verification standards
+globs: "src/**/*.test.ts, src/**/*.test.tsx, tests/**/*.ts, tests/**/*.tsx"
+alwaysApply: false
+---
+
+# Testing
+
+- Test observable behavior and security invariants, not implementation trivia.
+- Pure domain modules must have deterministic unit tests with no network.
+- Every authorization allow case needs corresponding mutation/deny cases.
+- Test boundary values: zero, exact threshold, one unit above/below, maximum, expiry instant, duplicate nonce, and malformed input.
+- Vendor adapters use recorded redacted fixtures for parsing tests and explicit opt-in integration tests for live services.
+- Never let a fixture test be presented as live integration evidence.
+- Keep tests isolated. Restore timers, mocks, environment variables, and global state.
+- A fixed test must reproduce the prior failure before the implementation changes.
+- Do not lower coverage thresholds or delete assertions to make a build green.
+- Security-critical domain modules target at least 90% branch coverage.
+- Run the narrow test during iteration and `pnpm check` before completion.
+

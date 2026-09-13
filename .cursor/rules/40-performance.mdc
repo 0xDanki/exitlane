@@ -1,0 +1,21 @@
+---
+description: Performance budgets and fast Next.js implementation rules
+globs: "src/**/*.ts, src/**/*.tsx"
+alwaysApply: false
+---
+
+# Performance
+
+- Default to React Server Components. Add `use client` only at the smallest interactive boundary.
+- Keep vendor SDKs out of the initial client bundle unless browser execution is required.
+- Load Attack Lab, charts, and noncritical technical panels lazily.
+- Do not add a charting, state-management, animation, date, or utility library for functionality the platform already provides.
+- Parallelize independent server requests, but never parallelize steps with a security dependency.
+- Apply explicit timeouts and cancellation to Graph, Claude, Uniswap, Privy, and RPC requests.
+- Cache stable discovery/configuration responses; do not cache authorization decisions or live risk evidence beyond its documented freshness window.
+- Prevent duplicate requests and transaction submissions.
+- Use `next/image` for raster assets and reserve dimensions to prevent layout shift.
+- Avoid render waterfalls, broad context providers, unnecessary global state, and polling while the tab is hidden.
+- Measure before optimizing and record meaningful regressions.
+- Respect the budgets in `docs/PERFORMANCE_BUDGET.md`.
+

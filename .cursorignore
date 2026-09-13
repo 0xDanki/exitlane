@@ -1,0 +1,15 @@
+.env
+.env.*
+!.env.local.example
+*.pem
+*.key
+*.p12
+*.pfx
+private/
+secrets/
+.next/
+node_modules/
+coverage/
+dist/
+*.log
+

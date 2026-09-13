@@ -1,0 +1,25 @@
+---
+description: TypeScript and application architecture constraints
+globs: "src/**/*.ts, src/**/*.tsx"
+alwaysApply: false
+---
+
+# Architecture
+
+- Keep domain logic pure and independent of React, Next.js, and vendor SDKs.
+- External SDKs belong in adapter modules under `src/lib/graph`, `src/lib/privy`, `src/lib/uniswap`, and `src/lib/ai`.
+- API routes parse/authenticate requests and call application services; they must not contain duplicated domain rules.
+- The execution orchestrator coordinates steps but does not implement parsing, signature verification, risk math, or vendor-specific transport.
+- React components consume typed view models. They must not call vendor SDKs directly except Privy's documented client authentication/wallet hooks.
+- Validate every external boundary with Zod before domain code receives the value.
+- Represent authorization-relevant amounts as `bigint` or canonical integer strings. Never use floating point for wei, token units, prices, or basis points.
+- Use discriminated unions for state and results. Make illegal states difficult to represent.
+- Avoid circular dependencies and barrel files that conceal them.
+- Prefer explicit dependency injection for external clients so domain tests need no network.
+
+# Dependency direction
+
+`UI/API -> application orchestration -> domain policy -> adapter interfaces`
+
+Vendor implementations point inward through typed interfaces; domain modules never import vendor SDKs.
+
