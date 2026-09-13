@@ -7,3 +7,14 @@ This version has breaking changes — APIs, conventions, and file structure may 
 This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
 
 <!-- END:nextjs-agent-rules -->
+
+# ExitLane project instructions
+
+Before any multi-file change, read `CLAUDE.md`, `docs/PRODUCT_SCOPE.md`,
+`docs/STATUS.md`, and the task-relevant specification under `docs/`.
+
+Follow ExitLane's deterministic authorization boundary, secret-handling rules,
+supplied design system (`docs/DESIGN_SYSTEM.md`), and demo-first scope.
+
+Do not read or modify `.env.local`. Do not claim an external integration or
+transaction succeeded without verifiable evidence.
