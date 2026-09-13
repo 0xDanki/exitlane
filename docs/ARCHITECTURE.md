@@ -53,6 +53,46 @@ External adapters
 12. Resolve the transaction outcome and consume the nonce safely.
 13. Produce an execution receipt.
 
+## The Graph trust boundary
+
+The Graph is an evidence source, not an authorization authority.
+
+```
+The Graph gateway
+  │  POST https://gateway.thegraph.com/api/subgraphs/id/<ID>
+  │  Authorization: Bearer <THE_GRAPH_API_KEY>   ← server-only header
+  ↓
+src/server/graph/client.ts
+  │  - 8 s timeout, AbortController
+  │  - Typed error: GraphFetchError (HTTP_ERROR | GRAPHQL_ERRORS | TIMEOUT | ...)
+  ↓
+src/server/graph/evidence.ts
+  │  - Zod schema validates raw response (shape, types, regex)
+  │  - Token identity check: token0=WETH, token1=USDC (exact address + decimals)
+  │  - Price orientation: token1Price = USDC per WETH (verified live, D-011)
+  │  - priceStringToScaled: BigInt-only arithmetic, truncation rounding (D-012)
+  │  - observedAtMs = _meta.block.timestamp × 1000 (chain-derived, not Date.now())
+  │  - Throws EvidenceFetchError on any validation failure — never returns
+  │    stale or fake evidence
+  ↓
+MarketEvidence (domain type, pure BigInt)
+  │  - inputToken: WETH address
+  │  - outputToken: USDC address
+  │  - price: bigint × 10^8
+  │  - observedAtMs: number (ms)
+  │  - indexedBlock: bigint
+  ↓
+GET /api/evidence
+  │  - Returns serialized evidence + provenance
+  │  - No API key, no raw upstream data, no stack traces in response
+  │  - evaluatePolicy() is NOT called here (evidence ≠ authorization)
+  ↓
+evaluatePolicy() in src/domain/policy.ts   ← separate call, separate concern
+```
+
+**What The Graph provides:** evidence (price, block, timestamp, provenance).
+**What The Graph does not provide:** authorization. The policy engine alone authorizes.
+
 ## Approved exceptions
 
 None. Add exceptions with rationale, risk, owner, and removal plan to `docs/DECISIONS.md`.

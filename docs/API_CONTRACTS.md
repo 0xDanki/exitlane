@@ -122,6 +122,88 @@ type CheckResult = {
 
 ---
 
+---
+
+## GET /api/evidence
+
+Returns normalized WETH/USDC market evidence from The Graph (Uniswap v3, Base mainnet).
+
+**The Graph supplies evidence. It does NOT authorize execution.**
+Authorization is performed exclusively by `evaluatePolicy()` in `src/domain/policy.ts`.
+
+Runtime: Node.js. Caching: none (`force-dynamic`).
+
+### Success response (HTTP 200)
+
+```ts
+{
+  ok: true;
+  evidence: {
+    /** Checksummed WETH address on Base mainnet. */
+    inputToken: string;
+    /** Checksummed native USDC address on Base mainnet. */
+    outputToken: string;
+    /**
+     * ETH price in USDC, scaled by 10^8.
+     * Decimal string (BigInt serialized).
+     * Example: "247643879727" = $2476.43879727
+     */
+    price: string;
+    /**
+     * Market observation time in milliseconds.
+     * Derived from _meta.block.timestamp × 1000 (chain data, NOT Date.now()).
+     */
+    observedAtMs: number;
+    /**
+     * Last indexed block number at query time. Decimal string.
+     */
+    indexedBlock: string;
+    /** Always 100000000 (10^8). The denominator for price. */
+    priceScale: number;
+  };
+  provenance: {
+    provider: "TheGraph";
+    sourceChainId: 8453;                        // Base mainnet
+    subgraphId: string;                         // Uniswap v3 Base subgraph ID
+    poolAddress: string;                        // WETH/USDC 0.05% pool
+    indexedBlock: number;
+    observedTimestampSec: number;               // Unix seconds from block
+  };
+  /** ISO 8601 server-side fetch time (not the market observation time). */
+  fetchedAt: string;
+}
+```
+
+### Error response (non-200)
+
+```ts
+{
+  ok: false;
+  error: {
+    /** Stable machine-readable code. */
+    code:
+      | "CONFIGURATION_ERROR"   // THE_GRAPH_API_KEY missing — 500
+      | "GRAPH_UNAVAILABLE"     // timeout, HTTP error, network failure — 503
+      | "GRAPH_QUERY_ERROR"     // GraphQL errors array — 502
+      | "SCHEMA_INVALID"        // response doesn't match Zod schema — 502
+      | "POOL_NOT_FOUND"        // pool absent from subgraph — 502
+      | "UNEXPECTED_TOKEN_ADDRESS"  // token identity mismatch — 502
+      | "UNEXPECTED_TOKEN_DECIMALS" // token decimal mismatch — 502
+      | "PRICE_ZERO"            // price normalized to zero — 502
+      | "INTERNAL_ERROR";       // unexpected — 500
+    /** Human-readable. Never contains secrets or raw upstream data. */
+    message: string;
+  };
+}
+```
+
+**Guarantees:**
+- Never returns fake or stale evidence with HTTP 200.
+- Never includes the API key, raw upstream response, or stack traces.
+- The `evaluatePolicy` function is never called in this route.
+
+---
+
 ## GET /api/health
 
 Returns configuration booleans and service names only. It never performs a transaction or reveals values.

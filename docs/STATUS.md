@@ -7,7 +7,7 @@ Use exact labels: implemented, tested, deployed, simulated, planned, blocked.
 
 ## Current phase
 
-**Phase 2 — Security review and corrections** (complete)
+**Phase 3 — Trusted live WETH/USDC market evidence from The Graph** (complete)
 
 ---
 
@@ -50,21 +50,36 @@ Use exact labels: implemented, tested, deployed, simulated, planned, blocked.
 
 ---
 
-## Test results (Phase 2 — after security corrections)
+## Test results (Phase 3 — after Graph evidence pipeline)
 
 | File | Tests |
 |------|-------|
-| `primitives.test.ts` | 50 pass (adds Uint64StringSchema ×13, SafeChainIdSchema ×11) |
-| `execution.test.ts` | 16 pass (adds uint64 deadline boundary tests ×2) |
-| `mandate.test.ts` | 30 pass (adds 15-field coverage assertion, literal enforcement, uint64/chain ID boundary tests ×5) |
-| `policy.test.ts` | 29 pass (adds envelope tests ×2, Attack A/B trust-boundary tests ×2) |
-| **Total** | **125 pass, 0 fail** (2026-09-13, 755ms) |
+| `primitives.test.ts` | 50 pass |
+| `execution.test.ts` | 16 pass |
+| `mandate.test.ts` | 30 pass |
+| `policy.test.ts` | 29 pass |
+| `server/graph/evidence.test.ts` | 37 pass (new: priceStringToScaled ×9, fetchWethUsdcEvidence ×28) |
+| **Total** | **162 pass, 0 fail** (2026-09-13, 803ms) |
+
+---
+
+### Phase 3 (Graph evidence pipeline — complete)
+
+- `src/config/markets.ts` — trusted public market identifiers: Base mainnet chain ID, WETH/USDC addresses and decimals, verified subgraph ID and pool address.
+- `src/server/env.ts` — server-only `THE_GRAPH_API_KEY` access (enforced by `server-only` package).
+- `src/server/graph/client.ts` — HTTP client with typed errors, 8 s timeout, key in header (never URL).
+- `src/server/graph/evidence.ts` — Zod-validated fetch pipeline; token identity enforcement; `priceStringToScaled` (BigInt-only, truncation); chain-derived `observedAtMs`; `EvidenceFetchError` typed errors.
+- `src/app/api/evidence/route.ts` — `GET /api/evidence` (Node runtime, force-dynamic); no fake fallback; no secret in response.
+- `src/test-setup.ts` + `vitest.config.ts` updated — `server-only` mocked for test environment.
+- **Discovery (live-verified):** Subgraph `GqzP4X…TbvZpz` (36.2K Signal, `hasIndexingErrors: false`), pool `0xd0b53D…F224` (WETH/USDC 0.05%, TVL ≈ $8.7M), token0 = WETH, token1 = USDC, price field = `token1Price` (USDC per WETH). See Decision D-011.
+- **Rounding rule documented:** truncation (floor) at 8 decimal places. See Decision D-012.
+- The Graph supplies evidence only. It does NOT authorize execution. Authorization remains exclusively in `evaluatePolicy()`.
 
 ---
 
 ## In progress
 
-- Phase 3 planning (API routes: `/api/health`, `/api/risk`, `/api/analyze`; adapter stubs for The Graph and Anthropic).
+- Phase 4 planning (UI, Privy auth, quote/execute flow).
 
 ---
 
@@ -87,27 +102,28 @@ Use exact labels: implemented, tested, deployed, simulated, planned, blocked.
 
 | Integration | Configured | Live verified | Evidence |
 |-------------|:----------:|:-------------:|---------|
-| The Graph   | No | No | — |
+| The Graph   | ✓ Yes | ✓ Yes | `GET /api/evidence` → $2475, block 51257280, age 6 s (2026-09-13) |
 | Privy       | No | No | — |
 | Uniswap     | No | No | — |
 | Anthropic   | No | No | — |
 
 ---
 
-## Latest verification (Phase 2 security corrections)
+## Latest verification (Phase 3 — Graph evidence pipeline)
 
 | Check | Result | Date / evidence |
 |-------|--------|----------------|
 | `pnpm lint` | ✓ passed | 2026-09-13, `eslint .` — 0 errors, 0 warnings |
-| `pnpm test` | ✓ passed | 2026-09-13, 125/125 tests pass in 755ms |
+| `pnpm test` | ✓ passed | 2026-09-13, 162/162 tests pass in 803ms |
 | `pnpm typecheck` | ✓ passed | 2026-09-13, `tsc --noEmit` — 0 errors |
-| `pnpm build` | ✓ passed | 2026-09-13, Next.js 16.3.5 Turbopack, compiled in 4.3s |
+| `pnpm build` | ✓ passed | 2026-09-13, Next.js 16.3.5 Turbopack, `/api/evidence` (Dynamic) |
 | `git diff --check` | ✓ clean | 2026-09-13 |
+| `/api/evidence` live | ✓ $2475.33 | 2026-09-13, block 51257280, age 6 s, key not printed |
 
 ---
 
 ## Next three actions
 
 1. Implement `/api/health` route with configuration booleans (no secrets revealed).
-2. Create The Graph adapter stub with typed port interface and fixture data.
-3. Implement `/api/risk` route calling the adapter and the policy engine.
+2. Implement Privy authentication and wallet ownership verification.
+3. Implement `/api/risk` route calling evidence + policy engine (no execution).
