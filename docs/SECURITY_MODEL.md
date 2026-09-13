@@ -36,9 +36,121 @@ Privy is trusted to enforce the configured signer policy. Uniswap is trusted to 
 
 Block execution when evidence is stale, a provider times out, schemas are unknown, AI and deterministic policy disagree under the current MVP rule, transaction state is uncertain, a nonce is reused, or any field cannot be verified.
 
+## Signed mandate fields (EIP-712 ExitMandate v1)
+
+All 15 fields below are included in the EIP-712 typed-data hash.  Any mutation
+invalidates the signature.  Field order is stable.
+
+| # | Field | EIP-712 type | Semantic |
+|---|-------|-------------|---------|
+| 1 | `mandateVersion` | `string` | Schema version; Zod literal — only `"1"` accepted |
+| 2 | `owner` | `address` | Address of the operator who signed |
+| 3 | `treasuryWallet` | `address` | Wallet whose funds are being protected |
+| 4 | `inputToken` | `address` | Token to sell (exact match required) |
+| 5 | `outputToken` | `address` | Token to receive (exact match required) |
+| 6 | `maxInputAmount` | `uint256` | Maximum wei of inputToken to sell |
+| 7 | `triggerComparator` | `string` | Zod literal — only `"lte"` (price ≤ threshold) accepted in v1 |
+| 8 | `triggerThreshold` | `uint256` | Price threshold scaled by 10^8 |
+| 9 | `maxSlippageBps` | `uint256` | Maximum slippage in integer basis points [0, 10 000] |
+| 10 | `approvedChainId` | `uint256` | Chain ID — present in both domain and message; constrained to safe integer range (Decision D-009) |
+| 11 | `approvedRouter` | `address` | Exact execution target address |
+| 12 | `outputRecipient` | `address` | Exact recipient of swap output |
+| 13 | `validAfter` | `uint64` | Unix seconds before which mandate is inactive; validated [0, 2^64-1] |
+| 14 | `expiry` | `uint64` | Unix seconds after which mandate is expired; validated [0, 2^64-1]; must be > `validAfter` |
+| 15 | `nonce` | `bytes32` | 32-byte single-use identifier |
+
+EIP-712 domain: `{ name: "ExitLane", version: "1", chainId: Number(approvedChainId) }`.
+No `verifyingContract` — off-chain verification (Decision D-007).
+
+### Missing verifyingContract — corrected risk analysis
+
+**Knowing an owner address does NOT enable signature forgery.**  An attacker
+cannot produce a valid ECDSA signature for an address they do not control.
+
+The actual risks of omitting `verifyingContract` are:
+
+1. **Weaker deployment-level domain separation**: two ExitLane deployments on
+   the same chain (e.g., staging vs production) sharing `name="ExitLane"` and
+   `version="1"` will share the same domain separator.  A mandate signed for
+   staging is mathematically valid on production.  `verifyingContract` would
+   make each deployment's separator unique.
+
+2. **Cross-application replay**: any application that constructs the identical
+   EIP-712 domain and the same typed-data struct layout could replay signatures.
+   The risk is low given ExitLane's unique 15-field struct, but not zero.
+
+3. **API-layer Privy ownership check (separate concern)**: the policy engine
+   verifies the signature came from `mandate.owner`.  The API layer must
+   *additionally* verify that `mandate.owner` is the wallet address of the
+   authenticated Privy user.  Without this, someone who knows an operator's
+   address could submit a mandate claiming to be that operator (though they
+   cannot produce a valid signature for it).
+
+Mitigations: add `verifyingContract` before production; enforce Privy ownership
+check in the API layer for every request.
+
+## Execution intent and trusted hash binding (Decision D-005 / D-010)
+
+The canonical execution hash is `keccak256(abi.encode(...))` over all 11 fields:
+`chainId`, `target`, `calldata`, `nativeValue`, `inputToken`, `outputToken`,
+`exactInputAmount`, `minOutputAmount`, `recipient`, `slippageBps`, `deadline`.
+A single-byte mutation in any field changes the hash.
+
+### Trust boundary
+
+The execution hash is computed and stored server-side when the server
+constructs the execution intent from the validated Uniswap response.  The hash
+is **never accepted from the browser as authoritative**.
+
+Before a transaction is submitted, the API layer must:
+1. Retrieve the stored `envelope.executionHash`.
+2. Recompute `hashExecutionIntent(actualIntent)`.
+3. Require exact equality.  Any post-authorization mutation → `EXECUTION_HASH_INCONSISTENT`.
+
+An attacker who recomputes the hash for mutated calldata will produce a hash
+that differs from the server-stored trusted value → still blocked.
+
+### AuthorizationEnvelope
+
+The policy engine produces an `AuthorizationEnvelope` (always, AUTHORIZED or
+BLOCKED) binding:
+- `policyVersion: "1"`
+- `mandateHash` — EIP-712 hash of the signed mandate
+- `evidenceHash` — canonical hash of the evidence snapshot
+- `executionHash` — canonical hash of the execution intent (the trusted value)
+- `evaluatedAtMs` — evaluation wall-clock time
+- `outcome` — AUTHORIZED or BLOCKED
+- `envelopeHash` — `keccak256(abi.encode(all of the above))`
+
+The envelope is NOT user-signed.  It is a server-side audit record.
+
+## Policy checks (17 total, all must pass)
+
+`SCHEMA_INVALID` · `SIGNER_MISMATCH` · `NOT_YET_VALID` · `MANDATE_EXPIRED` ·
+`WRONG_CHAIN` · `EVIDENCE_STALE` · `EVIDENCE_PAIR_MISMATCH` · `TRIGGER_NOT_MET` ·
+`AMOUNT_EXCEEDED` · `INPUT_TOKEN_MISMATCH` · `OUTPUT_TOKEN_MISMATCH` ·
+`RECIPIENT_MISMATCH` · `TARGET_NOT_APPROVED` · `SLIPPAGE_EXCEEDED` ·
+`DEADLINE_AFTER_EXPIRY` · `NONCE_REUSED` · `EXECUTION_HASH_INCONSISTENT`
+
+## Chain ID handling (Decision D-009)
+
+ExitLane's schema uses `SafeChainIdSchema` for `approvedChainId`.  This
+validates the value is a positive decimal integer ≤ `Number.MAX_SAFE_INTEGER`
+(9 007 199 254 740 991).  All real Ethereum chain IDs are far below this bound.
+The validation allows safe conversion to a JavaScript `number` as required by
+the viem `TypedDataDomain` type.  An `approvedChainId` above the safe boundary
+is rejected at schema validation time — it never reaches `hashMandate()`.
+
+| Chain | ID | Role |
+|-------|-----|------|
+| Base mainnet | 8453 | Evidence source (Decision D-002) |
+| Base Sepolia | 84532 | Execution MVP target |
+
 ## Known POC limitations
 
 - In-memory nonce storage is not production-safe.
+- `verifyingContract` absent — weaker deployment separation (add before production).
+- API-layer Privy ownership check must be implemented and enforced.
 - Universal Router nested calldata is not assumed to be fully decoded unless a tested decoder exists.
 - Mainnet market evidence may drive a separately labelled testnet execution demonstration.
 - The project is unaudited and must not custody assets of value.
